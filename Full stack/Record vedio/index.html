@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Camera Streaming</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(135deg, #e0f7fa, #80deea);
+            margin: 0;
+            height: 100vh;
+            justify-content: center;
+            text-align: center;
+            color: #333;
+        }
+        h1 {
+            margin-top: 20px;
+            font-size: 2.5em;
+            color: #009688; /* Teal color */
+        }
+        #videoElement {
+            width: 640px;
+            height: 480px;
+            border: 5px solid #009688;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #controls button {
+            margin: 0 10px;
+            padding: 12px 24px;
+            background-color: #009688;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s ease;
+        }
+        #controls button:hover {
+            background-color: #00796b; /* Darker teal color */
+        }
+        #recordings {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #recordings video {
+            width: 300px;
+            height: 225px;
+            margin: 10px;
+            border: 2px solid #009688;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .downloadButton {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            background-color: #009688;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .downloadButton:hover {
+            background-color: #00796b;
+        }
+        #timer {
+            font-size: 1.5em;
+            margin-top: 20px;
+            color: #009688;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Camera Streaming</h1>
+    <video id="videoElement" autoplay></video>
+    <div id="controls">
+        <button id="startRecording">Start Recording</button>
+        <button id="stopRecording" disabled>Stop Recording</button>
+    </div>
+    <div id="timer">00:00</div>
+    <div id="recordings"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('videoElement');
+            const startRecordingButton = document.getElementById('startRecording');
+            const stopRecordingButton = document.getElementById('stopRecording');
+            const recordingsContainer = document.getElementById('recordings');
+            const timerElement = document.getElementById('timer');
+            let mediaRecorder;
+            let recordedChunks = [];
+            let timer;
+            let seconds = 0;
+
+            function updateTimer() {
+                seconds++;
+                const minutes = Math.floor(seconds / 60);
+                const displaySeconds = seconds % 60;
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${displaySeconds.toString().padStart(2, '0')}`;
+            }
+
+            function startTimer() {
+                timer = setInterval(updateTimer, 1000);
+            }
+
+            function stopTimer() {
+                clearInterval(timer);
+                seconds = 0;
+                timerElement.textContent = "00:00";
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    mediaRecorder.ondataavailable = event => {
+                        recordedChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        stopRecordingButton.disabled = true;
+                        startRecordingButton.disabled = false;
+
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        recordedChunks = [];
+
+                        const videoElement = document.createElement('video');
+                        videoElement.controls = true;
+                        videoElement.src = URL.createObjectURL(blob);
+
+                        const downloadButton = document.createElement('button');
+                        downloadButton.innerText = 'Download Video';
+                        downloadButton.className = 'downloadButton';
+                        downloadButton.onclick = () => {
+                            const a = document.createElement('a');
+                            a.href = URL.createObjectURL(blob);
+                            a.download = 'recorded_video.webm';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        };
+
+                        const recordingContainer = document.createElement('div');
+                        recordingContainer.appendChild(videoElement);
+                        recordingContainer.appendChild(downloadButton);
+                        recordingsContainer.appendChild(recordingContainer);
+                    };
+
+                    startRecordingButton.addEventListener('click', () => {
+                        mediaRecorder.start();
+                        stopRecordingButton.disabled = false;
+                        startRecordingButton.disabled = true;
+                        startTimer();
+                    });
+
+                    stopRecordingButton.addEventListener('click', () => {
+                        mediaRecorder.stop();
+                        stopTimer();
+                    });
+                })
+                .catch(error => {
+                    console.error('Error accessing camera:', error);
+                });
+        });
+    </script>
+</body>
+</html>
